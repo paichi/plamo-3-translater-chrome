@@ -23,6 +23,7 @@
    */
   function createPageTranslator({ translate, getSettings, isOwnUi, onUpdate }) {
     let active = false;
+    let contextInvalidated = false;
     let generation = 0;
     let claimed = new WeakSet();
     let inserted = new WeakSet();
@@ -40,6 +41,7 @@
 
     const intersection = new IntersectionObserver(
       (entries) => {
+        if (!active || contextInvalidated) return;
         awaitingFirstReport = false;
         for (const entry of entries) {
           if (!entry.isIntersecting) continue;
@@ -153,6 +155,7 @@
 
     function flushMutations() {
       mutationTimer = 0;
+      if (!active || contextInvalidated) return;
       const roots = [...mutationRoots];
       mutationRoots = new Set();
       for (const root of roots) {
@@ -168,13 +171,27 @@
 
     function pump() {
       const limit = getSettings().concurrency;
-      while (active && running < limit && queue.length) {
+      while (active && !contextInvalidated && running < limit && queue.length) {
         const distances = queue.map(distance);
         const [segment] = queue.splice(distances.indexOf(Math.min(...distances)), 1);
         const gen = generation;
         running++;
         translateSegment(segment, gen)
           .catch((e) => {
+            if (gen !== generation || contextInvalidated) return;
+            if (e.contextInvalidated || e.message?.includes('Extension context invalidated')) {
+              contextInvalidated = true;
+              queue = [];
+              pendingByParent.clear();
+              awaitingFirstReport = false;
+              intersection.disconnect();
+              mutations.disconnect();
+              clearTimeout(mutationTimer);
+              mutationTimer = 0;
+              mutationRoots.clear();
+              progress.error = '拡張機能が更新されました。ページを再読み込みしてください';
+              return;
+            }
             progress.failed++;
             progress.error = e.message;
           })
@@ -197,7 +214,7 @@
     async function translateSegment(segment, gen) {
       if (!isIntact(segment)) return;
       const { tree } = parse(await cached(segment.source), segment.tags.length);
-      if (gen !== generation || !isIntact(segment)) return;
+      if (gen !== generation || contextInvalidated || !isIntact(segment)) return;
       const replacements = build(tree, segment.tags, document);
       if (segment.lead) replacements.unshift(document.createTextNode(' '));
       if (segment.trail) replacements.push(document.createTextNode(' '));
@@ -226,6 +243,7 @@
     function start() {
       if (active) return;
       active = true;
+      contextInvalidated = false;
       generation++;
       progress = { done: 0, total: 0, failed: 0, error: '' };
       awaitingFirstReport = true;
@@ -320,7 +338,7 @@
       box.hidden = dismissed;
       box.dataset.state = state;
       label.textContent = state === 'translating' ? `翻訳中 ${done}/${total}` : '翻訳済み';
-      error.textContent = failed ? `${failed} 件失敗: ${message}` : '';
+      error.textContent = failed ? `${failed} 件失敗: ${message}` : message;
       error.title = message;
     };
   }

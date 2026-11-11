@@ -1,6 +1,6 @@
 # PLaMo Translator (Chrome extension)
 
-A Chrome extension (v0.6.0) that translates web pages in place with PLaMo: either through an OpenAI-compatible API (e.g. llama.cpp), or entirely inside Chrome using PLaMo 3 Translate 0.8B and wllama. The built-in engine requires Chrome 137 or later; server mode does not impose that new requirement.
+A Chrome extension (v0.6.1) that translates web pages in place with PLaMo: either through an OpenAI-compatible API (e.g. llama.cpp), or entirely inside Chrome using PLaMo 3 Translate 0.8B and wllama. The built-in engine requires Chrome 137 or later; server mode does not impose that new requirement.
 
 - **Page translation.** Replaces the text of the current page with its translation. Links and bold text stay in place, and one click restores the original.
 - **Selection translation.** Select some text and a small button with the extension's icon appears. Click it to open a card with the translation below the selection.

@@ -64,9 +64,17 @@
   });
 
   async function translate(text) {
-    const response = await chrome.runtime.sendMessage({ type: 'translate', text });
-    if (!response?.ok) throw new Error(response?.error ?? '拡張機能から応答がありません');
-    return response.text;
+    try {
+      if (!chrome.runtime?.id) throw new Error('Extension context invalidated');
+      const response = await chrome.runtime.sendMessage({ type: 'translate', text });
+      if (!response?.ok) throw new Error(response?.error ?? '拡張機能から応答がありません');
+      return response.text;
+    } catch (e) {
+      if (!e?.message?.includes('Extension context invalidated')) throw e;
+      const error = new Error('拡張機能が更新されました。ページを再読み込みしてください');
+      error.contextInvalidated = true;
+      throw error;
+    }
   }
 
   const openOptions = () => chrome.runtime.sendMessage({ type: 'open-options' }).catch(() => {});
@@ -82,7 +90,11 @@
       renderStatus(status);
       if (status.state !== lastState) {
         lastState = status.state;
-        chrome.runtime.sendMessage({ type: 'state', state: status.state }).catch(() => {});
+        try {
+          chrome.runtime.sendMessage({ type: 'state', state: status.state }).catch(() => {});
+        } catch {
+          // An orphaned content script cannot notify the background after an extension update.
+        }
       }
     },
   });
