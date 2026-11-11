@@ -39,6 +39,26 @@ button {
 button:hover { border-color: var(--accent); }
 button.primary { background: var(--accent); color: var(--on-accent); border-color: var(--accent); font-weight: 600; }
 .actions { display: flex; gap: 8px; }
+.backend-lamps {
+  display: inline-flex; flex-wrap: wrap; gap: 12px 24px; margin: 0 0 14px; padding: 8px 12px;
+  background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+}
+.backend-lamp { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 8px; --lamp-color: var(--ok); }
+#backend-wasm { --lamp-color: var(--accent); }
+.lamp-dot {
+  width: 9px; height: 9px; flex: 0 0 9px; border-radius: 50%; background: var(--border);
+  transition: background-color 180ms ease, box-shadow 180ms ease;
+}
+.lamp-label { color: var(--muted); opacity: .55; font-weight: 600; transition: color 180ms ease, opacity 180ms ease; }
+.backend-lamp.is-active .lamp-dot {
+  background: var(--lamp-color); box-shadow: 0 0 5px var(--lamp-color), 0 0 12px var(--lamp-color);
+}
+.backend-lamp.is-active .lamp-label { color: var(--fg); opacity: 1; }
+#gpu-adapter { margin: 0; overflow-wrap: anywhere; }
+#gpu-adapter[hidden] { display: none; }
+@media (prefers-reduced-motion: reduce) {
+  .lamp-dot, .lamp-label { transition: none; }
+}
 #message { min-height: 1.6em; white-space: pre-wrap; overflow-wrap: anywhere; }
 #message.ok { color: var(--ok); }
 #message.error { color: var(--danger); }

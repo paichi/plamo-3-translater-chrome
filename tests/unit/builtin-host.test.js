@@ -105,6 +105,8 @@ test('offscreen queue, OPFS commit/reuse/delete, failure recovery and CPU retry'
   try {
     await import('../../src/offscreen/host.js?unit');
     assert.equal((await call('status')).status.state, 'not-downloaded');
+    assert.equal((await call('status')).status.backend, null);
+    assert.equal(Object.hasOwn((await call('status')).status, 'gpuAdapter'), false);
     const replies = await Promise.all([
       call('translate'), call('translate', 'Q4_K_M', 'fail inference'), call('translate'),
     ]);
@@ -114,6 +116,7 @@ test('offscreen queue, OPFS commit/reuse/delete, failure recovery and CPU retry'
     assert.equal(loads.length, 1, 'single model instance');
     assert.equal(maxActive, 1, 'inference serialized');
     assert.equal((await call('status')).status.state, 'ready', 'successful retry clears error');
+    assert.equal((await call('status')).status.backend, 'wasm', 'no adapter maps to CPU');
     assert.ok(files.has('Q4_K_M.json'), 'complete marker committed');
 
     const running = call('translate');
@@ -129,6 +132,7 @@ test('offscreen queue, OPFS commit/reuse/delete, failure recovery and CPU retry'
     assert.deepEqual(events.slice(-3), ['start', 'end', 'exit'], 'unload/delete waits for inference');
     assert.equal(files.size, 0);
     assert.equal((await call('status')).status.state, 'not-downloaded');
+    assert.equal((await call('status')).status.backend, null, 'delete clears the loaded backend');
 
     interrupted = true;
     assert.equal((await call('load', 'Q3_K_M')).ok, false);
@@ -138,14 +142,44 @@ test('offscreen queue, OPFS commit/reuse/delete, failure recovery and CPU retry'
     const beforeReload = fetches;
     await import('../../src/offscreen/host.js?restart');
     assert.equal((await call('status', 'Q3_K_M')).status.state, 'cached');
+    assert.equal((await call('status', 'Q3_K_M')).status.backend, null, 'disk cache is not a loaded model');
     assert.equal((await call('load', 'Q3_K_M')).ok, true);
     assert.equal(fetches, beforeReload, 'OPFS reuse needs no network');
 
-    navigator.gpu = { requestAdapter: async () => ({}) };
+    navigator.gpu = { requestAdapter: async () => ({ info: { description: 'Test GPU' } }) };
     failGPU = true;
     assert.equal((await call('load', 'Q2_K')).ok, true);
     assert.deepEqual(loads.slice(-2), [99999, 0], 'GPU load failure retries CPU');
     assert.equal((await call('status', 'Q2_K')).status.backend, 'wasm');
+    assert.equal((await call('status', 'Q2_K')).status.gpuAdapter, 'Test GPU');
+    assert.equal((await call('status', 'Q3_K_M')).status.backend, null, 'previous quant is unloaded');
+    assert.equal(Object.hasOwn((await call('status', 'Q3_K_M')).status, 'gpuAdapter'), false);
+
+    failGPU = false;
+    const gpuLoad = await call('load');
+    assert.equal(gpuLoad.status.backend, 'webgpu', 'successful auto offload maps to WebGPU');
+    assert.equal(gpuLoad.status.gpuAdapter, 'Test GPU');
+    assert.equal((await call('status')).status.backend, 'webgpu');
+    await call('translate');
+    assert.equal((await call('status')).status.backend, 'webgpu', 'reuse preserves backend mapping');
+
+    navigator.gpu.requestAdapter = async () => ({
+      get info() { throw new Error('info unavailable'); },
+      requestAdapterInfo: async () => ({ vendor: 'Legacy GPU', architecture: 'test' }),
+    });
+    assert.equal((await call('load', 'Q3_K_M')).status.gpuAdapter, 'Legacy GPU · test');
+    navigator.gpu.requestAdapter = async () => ({
+      get info() { throw new Error('info unavailable'); },
+      requestAdapterInfo: async () => { throw new Error('info denied'); },
+    });
+    const noInfo = await call('load', 'Q2_K');
+    assert.equal(noInfo.status.backend, 'webgpu', 'metadata failure does not affect loading');
+    assert.equal(Object.hasOwn(noInfo.status, 'gpuAdapter'), false);
+    navigator.gpu.requestAdapter = () => { throw new Error('GPU unavailable'); };
+    assert.equal((await call('load')).status.backend, 'wasm', 'probe failure uses CPU');
+    const deleted = await call('delete');
+    assert.equal(deleted.status.backend, null);
+    assert.equal(Object.hasOwn(deleted.status, 'gpuAdapter'), false);
     assert.equal((await call('load', '../bad')).ok, false);
   } finally {
     globalThis.setInterval = originals.setInterval;

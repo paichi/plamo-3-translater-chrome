@@ -6,6 +6,9 @@ const message = document.getElementById('message');
 const fields = form.elements;
 const builtinPanel = document.getElementById('builtin');
 const modelStatus = document.getElementById('model-status');
+const backendWebgpu = document.getElementById('backend-webgpu');
+const backendWasm = document.getElementById('backend-wasm');
+const gpuAdapter = document.getElementById('gpu-adapter');
 const loadButton = document.getElementById('load-model');
 const deleteButton = document.getElementById('delete-model');
 const cacheStatus = document.getElementById('cache-status');
@@ -54,13 +57,24 @@ async function send(message) {
   return result;
 }
 
+function renderBackend(status = {}) {
+  for (const [lamp, backend, label] of [[backendWebgpu, 'webgpu', 'WebGPU'], [backendWasm, 'wasm', 'CPU (WASM)']]) {
+    const active = status.backend === backend;
+    lamp.classList.toggle('is-active', active);
+    lamp.setAttribute('aria-label', `${label}: ${active ? '使用中' : '未使用'}`);
+  }
+  gpuAdapter.textContent = status.gpuAdapter || '';
+  gpuAdapter.hidden = !status.gpuAdapter;
+}
+
 async function refreshModelStatus() {
   if (builtinPanel.hidden || polling) return;
   polling = true;
   const quant = fields.builtinModel.value;
   try {
     const { status } = await send({ type: 'builtin-model', operation: 'status', quant });
-    if (quant !== fields.builtinModel.value) return;
+    if (quant !== fields.builtinModel.value || builtinPanel.hidden) return;
+    renderBackend(status);
     const labels = {
       'not-downloaded': '未ダウンロード', cached: '保存済み（未読み込み）',
       downloading: 'ダウンロード中', loading: '読み込み中', ready: '準備完了', error: 'エラー',
@@ -79,6 +93,7 @@ async function refreshModelStatus() {
     loadButton.disabled = busy;
     deleteButton.disabled = busy;
   } catch (e) {
+    renderBackend();
     modelStatus.textContent = `エラー: ${e.message}`;
   } finally {
     polling = false;
@@ -111,6 +126,7 @@ clearCacheButton.addEventListener('click', async () => {
 function updateEngine() {
   builtinPanel.hidden = fields.engine.value !== 'builtin';
   modelStatus.textContent = '';
+  renderBackend();
   void refreshModelStatus();
 }
 
@@ -119,7 +135,10 @@ updateEngine();
 void refreshCacheStatus();
 window.addEventListener('focus', () => { void refreshCacheStatus(); });
 fields.engine.addEventListener('change', updateEngine);
-fields.builtinModel.addEventListener('change', () => { void refreshModelStatus(); });
+fields.builtinModel.addEventListener('change', () => {
+  renderBackend();
+  void refreshModelStatus();
+});
 // Polling is read-only and bypasses the inference queue so progress remains live.
 setInterval(() => { void refreshModelStatus(); }, 1000);
 

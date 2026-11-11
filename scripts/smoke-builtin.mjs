@@ -87,14 +87,68 @@ try {
   assert.equal((await worker.evaluate(() => chrome.runtime.getContexts({ contextTypes: ['OFFSCREEN_DOCUMENT'] }))).length, 0);
   const statuses = await options.evaluate(() => Promise.all(Array.from({ length: 6 }, () =>
     chrome.runtime.sendMessage({ type: 'builtin-model', operation: 'status', quant: 'Q2_K' }))));
-  assert.ok(statuses.every((r) => r.ok && r.status.state === 'not-downloaded'));
+  assert.ok(statuses.every((r) => r.ok && r.status.state === 'not-downloaded' && r.status.backend === null));
   const contexts = await worker.evaluate(() => chrome.runtime.getContexts({ contextTypes: ['OFFSCREEN_DOCUMENT'] }));
   assert.equal(contexts.length, 1);
   await options.selectOption('[name=engine]', 'builtin');
   await options.selectOption('[name=builtinModel]', 'Q2_K');
   await options.locator('#model-status', { hasText: '未ダウンロード' }).waitFor();
   assert.equal(await options.locator('[name=baseUrl]').isVisible(), true);
+  assert.equal(await options.locator('.backend-lamp.is-active').count(), 0);
   console.log('PASS builtin UI / concurrent offscreen creation / OPFS empty status');
+
+  // Stub only status responses in a separate options page, never inference or
+  // the actual host. Exercise the real options module, DOM, CSS and polling.
+  const lamps = await context.newPage();
+  const lampErrors = [];
+  lamps.on('pageerror', (e) => lampErrors.push(e.message));
+  await lamps.addInitScript(() => {
+    const send = chrome.runtime.sendMessage.bind(chrome.runtime);
+    window.backendStatus = { state: 'cached', backend: null };
+    chrome.runtime.sendMessage = (message) => message.type === 'builtin-model' && message.operation === 'status'
+      ? Promise.resolve({ ok: true, status: { quant: message.quant, pending: 0, ...window.backendStatus } })
+      : send(message);
+  });
+  await lamps.goto(`chrome-extension://${id}/src/options/options.html`);
+  await lamps.waitForFunction(() => !!document.querySelector('[name=baseUrl]')?.value);
+  await lamps.selectOption('[name=engine]', 'builtin');
+  for (const colorScheme of ['light', 'dark']) {
+    await lamps.emulateMedia({ colorScheme, reducedMotion: 'reduce' });
+    for (const backend of ['webgpu', 'wasm', null]) {
+      await lamps.evaluate((backend) => {
+        window.backendStatus = {
+          state: backend ? 'ready' : 'cached', backend,
+          ...(backend === 'webgpu' ? { gpuAdapter: 'Test <GPU>' } : {}),
+        };
+      }, backend);
+      await lamps.waitForFunction((backend) => {
+        const active = [...document.querySelectorAll('.backend-lamp.is-active')];
+        return backend ? active.length === 1 && active[0].id === `backend-${backend}` : active.length === 0;
+      }, backend);
+      const appearance = await lamps.locator('.backend-lamp').evaluateAll((items) => items.map((item) => ({
+        active: item.classList.contains('is-active'),
+        glow: getComputedStyle(item.querySelector('.lamp-dot')).boxShadow,
+        opacity: getComputedStyle(item.querySelector('.lamp-label')).opacity,
+        label: item.getAttribute('aria-label'),
+      })));
+      for (const item of appearance) {
+        assert.equal(item.glow !== 'none', item.active, 'only the active dot glows');
+        assert.equal(Number(item.opacity) === 1, item.active, 'only the active label has full opacity');
+        assert.match(item.label, item.active ? /: 使用中$/ : /: 未使用$/);
+      }
+      assert.equal(await lamps.locator('#gpu-adapter').isVisible(), backend === 'webgpu');
+      if (backend === 'webgpu') {
+        assert.equal(await lamps.textContent('#gpu-adapter'), 'Test <GPU>');
+        assert.equal(await lamps.locator('#gpu-adapter > *').count(), 0, 'adapter name is plain text');
+      }
+      const detail = backend === 'webgpu' ? '準備完了（WebGPU 自動選択）'
+        : backend === 'wasm' ? '準備完了（WASM / CPU）' : '保存済み（未読み込み）';
+      assert.equal(await lamps.textContent('#model-status'), `Q4_K_M: ${detail}`, 'existing status text is preserved');
+    }
+  }
+  assert.deepEqual(lampErrors, []);
+  await lamps.close();
+  console.log('PASS options backend lamps: stubbed webgpu / wasm / null, adapter text, glow and labels (light + dark)');
 
   // Probe from the actual extension/browser, not curl or Node.
   const reachable = await options.evaluate(async () => {

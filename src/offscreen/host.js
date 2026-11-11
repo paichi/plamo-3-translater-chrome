@@ -8,6 +8,7 @@ const states = new Map();
 let model;
 let loadedQuant;
 let loadedBackend;
+let loadedGpuAdapter;
 let tail = Promise.resolve();
 let pending = 0;
 let keepaliveTimer;
@@ -108,6 +109,23 @@ async function unload() {
   if (loadedQuant) setState(loadedQuant, 'cached');
   model = undefined;
   loadedQuant = undefined;
+  loadedBackend = undefined;
+  loadedGpuAdapter = undefined;
+}
+
+async function gpuAdapterName(adapter) {
+  let info;
+  try { info = adapter?.info; } catch {}
+  if (!info) {
+    try { info = await adapter?.requestAdapterInfo?.(); } catch {}
+  }
+  try {
+    const parts = [info?.description, info?.vendor, info?.architecture, info?.device]
+      .filter((part) => typeof part === 'string' && part.trim());
+    return [...new Set(parts.map((part) => part.trim()))].join(' · ') || undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 function newModel() {
@@ -128,7 +146,8 @@ async function ensureModel(quant) {
   await unload();
   const file = await download(quant);
   setState(quant, 'loading');
-  const adapter = await navigator.gpu?.requestAdapter().catch(() => null);
+  let adapter;
+  try { adapter = await navigator.gpu?.requestAdapter(); } catch {}
   const params = { n_ctx: 4096, n_batch: 256, n_threads: 1, n_parallel: 1, n_gpu_layers: adapter ? 99999 : 0 };
   model = newModel();
   try {
@@ -146,12 +165,18 @@ async function ensureModel(quant) {
   }
   loadedQuant = quant;
   loadedBackend = params.n_gpu_layers ? 'auto' : 'wasm';
+  loadedGpuAdapter = await gpuAdapterName(adapter);
   setState(quant, 'ready', { backend: loadedBackend });
 }
 
 async function status(quant) {
   const saved = states.get(quant);
-  return { ...(saved ?? { quant, state: await cachedFile(quant) ? 'cached' : 'not-downloaded' }), pending };
+  const isLoaded = model && loadedQuant === quant;
+  return {
+    ...(saved ?? { quant, state: await cachedFile(quant) ? 'cached' : 'not-downloaded' }), pending,
+    backend: isLoaded ? (loadedBackend === 'auto' ? 'webgpu' : 'wasm') : null,
+    ...(isLoaded && loadedGpuAdapter ? { gpuAdapter: loadedGpuAdapter } : {}),
+  };
 }
 
 async function run({ operation, quant, text, targetLang }) {

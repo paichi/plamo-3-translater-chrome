@@ -1,6 +1,6 @@
 # PLaMo Translator (Chrome extension)
 
-A Chrome extension (v0.5.0) that translates web pages in place with PLaMo: either through an OpenAI-compatible API (e.g. llama.cpp), or entirely inside Chrome using PLaMo 3 Translate 0.8B and wllama. The built-in engine requires Chrome 137 or later; server mode does not impose that new requirement.
+A Chrome extension (v0.6.0) that translates web pages in place with PLaMo: either through an OpenAI-compatible API (e.g. llama.cpp), or entirely inside Chrome using PLaMo 3 Translate 0.8B and wllama. The built-in engine requires Chrome 137 or later; server mode does not impose that new requirement.
 
 - **Page translation.** Replaces the text of the current page with its translation. Links and bold text stay in place, and one click restores the original.
 - **Selection translation.** Select some text and a small button with the extension's icon appears. Click it to open a card with the translation below the selection.
@@ -52,6 +52,8 @@ The cache survives browser/extension restarts and does not sync. Hits refresh la
 2. Click **ダウンロード／読み込み**. The first use downloads several hundred MB from [pfnet/plamo-3-translate-0.8b-GGUF](https://huggingface.co/pfnet/plamo-3-translate-0.8b-GGUF). Status reports not downloaded, download progress, cached, loading, ready, or errors. Translation/test also loads lazily if needed.
 3. Test and save. Page translation, automatic translation and selection translation use the same background route as server mode. No text is sent to Hugging Face or an inference server; HF only serves model data.
 4. **選択モデルのキャッシュを削除** unloads the selected model and deletes its OPFS files. Other quants remain cached. Changes are serialized behind pending translations; the buttons are disabled while work is pending.
+
+Backend lamps beside the built-in model status light up **WebGPU** or **CPU (WASM)** from the loaded backend (both dim when unloaded), with the GPU adapter name when available.
 
 The model cache is private to the extension's origin/browser profile. Completed downloads are reused **without any network request** (loading into memory still takes time; it is not instantaneous). A completion marker plus size check prevents partial downloads being reused. Reloading the extension/browser loses the in-memory model, not the cache. Uninstalling/clearing site storage may remove the cache; downloads can fail if disk quota is exhausted. Only one model is in memory; changing quants unloads it. Normal settings use sync storage, but models do not sync.
 
@@ -128,7 +130,7 @@ CHROMIUM_PATH=/path/to/chrome npm run smoke:builtin
 REAL_MODEL=1 CHROMIUM_PATH=/path/to/chrome npm run smoke:builtin
 ```
 
-This uses a disposable profile **beside the repository, not on /tmp tmpfs**, and removes it on exit. It checks the server API payload with a local mock, options/model listing, manual/automatic page translation, restore, selection, builtin unsaved-engine routing, concurrent offscreen creation, and real OPFS deletion. A tiny invalid cached GGUF exercises the static worker/WASM initialization and error cleanup; it does **not** count as successful inference. A browser-side HF probe gates the optional real-model test, bounded to 240 seconds. `HTTPS_PROXY` is supported with credentials (never printed), but some proxies reject Chromium CONNECT requests. `ignoreHTTPSErrors` is for this disposable verification browser only; the extension does not relax TLS validation. The fallback system browser path is `/opt/meta-chromium/chrome`; set `CHROMIUM_PATH` for other installations.
+This uses a disposable profile **beside the repository, not on /tmp tmpfs**, and removes it on exit. It checks the server API payload with a local mock, options/model listing, manual/automatic page translation, restore, selection, builtin unsaved-engine routing, concurrent offscreen creation, and real OPFS deletion. Stubbed `webgpu` / `wasm` / `null` status responses also verify backend lamp classes, glow, label opacity and adapter text in light/dark themes. A tiny invalid cached GGUF exercises the static worker/WASM initialization and error cleanup; it does **not** count as successful inference. A browser-side HF probe gates the optional real-model test, bounded to 240 seconds. `HTTPS_PROXY` is supported with credentials (never printed), but some proxies reject Chromium CONNECT requests. `ignoreHTTPSErrors` is for this disposable verification browser only; the extension does not relax TLS validation. The fallback system browser path is `/opt/meta-chromium/chrome`; set `CHROMIUM_PATH` for other installations.
 
 Verified in this VM with Playwright Chromium **156.0.8078.4**:
 

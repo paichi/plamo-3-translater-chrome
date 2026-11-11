@@ -26,6 +26,17 @@
             <small>初回のみ Hugging Face から数百 MB を取得し、このブラウザに保存します。WebGPU 対応環境では GPU を使用し、利用できなければ WASM（CPU）で動作します。内蔵エンジンは同時リクエストを順番に処理します。</small>
           </label>
           <p id="model-status" role="status" aria-live="polite"></p>
+          <div class="backend-lamps" role="group" aria-label="内蔵モデルの実行バックエンド">
+            <span id="backend-webgpu" class="backend-lamp" aria-label="WebGPU: 未使用">
+              <span class="lamp-dot" aria-hidden="true"></span>
+              <span class="lamp-label">WebGPU</span>
+              <small id="gpu-adapter" hidden></small>
+            </span>
+            <span id="backend-wasm" class="backend-lamp" aria-label="CPU (WASM): 未使用">
+              <span class="lamp-dot" aria-hidden="true"></span>
+              <span class="lamp-label">CPU (WASM)</span>
+            </span>
+          </div>
           <div class="actions">
             <button type="button" id="load-model">ダウンロード／読み込み</button>
             <button type="button" id="delete-model">選択モデルのキャッシュを削除</button>
