@@ -7,9 +7,12 @@
     "e2e": "node tests/e2e/run.mjs",
     "measure-tags": "node scripts/measure-tags.mjs",
     "smoke": "node scripts/smoke-real.mjs",
+    "smoke:builtin": "node scripts/smoke-builtin.mjs",
+    "smoke:cache": "node scripts/smoke-cache.mjs",
     "icons": "node scripts/make_icons.mjs"
   },
   "devDependencies": {
+    "fake-indexeddb": "^6.2.8",
     "playwright": "^1.64.1"
   }
 }

@@ -13,6 +13,26 @@
       <section>
         <h2>翻訳に使う LLM</h2>
         <label>
+          <span>エンジン</span>
+          <select name="engine">
+            <option value="server">サーバー接続</option>
+            <option value="builtin">ブラウザ内蔵</option>
+          </select>
+        </label>
+        <div id="builtin" hidden>
+          <label>
+            <span>PLaMo 3 Translate 0.8B（量子化）</span>
+            <select name="builtinModel"></select>
+            <small>初回のみ Hugging Face から数百 MB を取得し、このブラウザに保存します。WebGPU 対応環境では GPU を使用し、利用できなければ WASM（CPU）で動作します。内蔵エンジンは同時リクエストを順番に処理します。</small>
+          </label>
+          <p id="model-status" role="status" aria-live="polite"></p>
+          <div class="actions">
+            <button type="button" id="load-model">ダウンロード／読み込み</button>
+            <button type="button" id="delete-model">選択モデルのキャッシュを削除</button>
+          </div>
+          <small>Chrome 137 以降が必要です。メモリ不足や長い文章で失敗する場合はサーバー接続を使用してください。API の設定は内蔵モードでは送信しません。</small>
+        </div>
+        <label>
           <span>API の URL</span>
           <input name="baseUrl" type="url" required placeholder="http://localhost:8080/v1">
           <small>PLaMo 翻訳モデルを配信している OpenAI 互換の API（llama.cpp など）の URL。<code>/chat/completions</code> の手前まで書きます。</small>
@@ -46,10 +66,28 @@
           <input name="showSelectionButton" type="checkbox">
           <span>文章を選んだときに翻訳ボタンを出す</span>
         </label>
+        <label class="check">
+          <input name="autoTranslate" type="checkbox">
+          <span>英語のページを自動で翻訳する</span>
+        </label>
+        <label>
+          <span>自動翻訳しないドメイン（1行に1つ）</span>
+          <textarea name="excludeDomains" rows="4" placeholder="example.com"></textarea>
+        </label>
+      </section>
+      <section>
+        <h2>翻訳キャッシュ</h2>
+        <label class="check">
+          <input name="cacheEnabled" type="checkbox">
+          <span>翻訳キャッシュを使う</span>
+        </label>
+        <small>訳文をこのブラウザに保存します。同じ文章は再翻訳せず、変更された文章だけを翻訳します（最大 20,000 件）。原文と訳文が保存されるため、共有ブラウザではご注意ください。無効にしても保存済みのキャッシュは削除されません。</small>
+        <p id="cache-status" role="status" aria-live="polite"></p>
+        <button type="button" id="clear-cache">翻訳キャッシュを削除</button>
       </section>
       <div class="actions">
         <button type="submit" class="primary">保存</button>
-        <button type="button" id="test">接続テスト</button>
+        <button type="button" id="test">選択エンジンの接続テスト</button>
       </div>
       <p id="message" role="status" aria-live="polite"></p>
     </form>

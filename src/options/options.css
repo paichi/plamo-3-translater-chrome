@@ -25,8 +25,8 @@ label > span:first-child { display: block; font-weight: 600; margin-bottom: 4px;
 label.check { display: flex; gap: 8px; align-items: center; }
 label.check > span { font-weight: normal; margin: 0; }
 small { display: block; color: var(--muted); font-size: 12px; margin-top: 4px; }
-input, select, button { font: inherit; color: inherit; }
-input:not([type="checkbox"]), select {
+input, select, textarea, button { font: inherit; color: inherit; }
+input:not([type="checkbox"]), select, textarea {
   width: 100%; box-sizing: border-box; padding: 6px 8px;
   background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
 }

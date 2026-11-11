@@ -1,3 +1,5 @@
+import { loadSettings } from '../shared/settings.js';
+
 const statusEl = document.getElementById('status');
 const toggle = document.getElementById('toggle');
 
@@ -33,6 +35,25 @@ toggle.addEventListener('click', async () => {
     await chrome.tabs.sendMessage(tab.id, { type: 'toggle-page' });
   }
   window.close();
+});
+
+const excludeSite = document.getElementById('exclude-site');
+let hostname = '';
+try {
+  const url = new URL(tab?.url ?? '');
+  if (['http:', 'https:'].includes(url.protocol)) hostname = url.hostname.toLowerCase();
+} catch {}
+excludeSite.disabled = !hostname;
+excludeSite.addEventListener('click', async () => {
+  excludeSite.disabled = true;
+  try {
+    const settings = await loadSettings();
+    await chrome.storage.sync.set({ excludeDomains: [...new Set([...settings.excludeDomains, hostname])] });
+    window.close();
+  } catch (e) {
+    statusEl.textContent = `保存できませんでした。\n${e.message}`;
+    excludeSite.disabled = false;
+  }
 });
 
 document.getElementById('options').addEventListener('click', () => chrome.runtime.openOptionsPage());

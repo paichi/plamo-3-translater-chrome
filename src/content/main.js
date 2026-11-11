@@ -38,10 +38,25 @@
   }
   ensureHost();
 
-  let settings = { targetLang: 'ja', concurrency: 4, showSelectionButton: true };
+  let settings = { targetLang: 'ja', concurrency: 4, showSelectionButton: true, autoTranslate: true, excludeDomains: [] };
   chrome.runtime
     .sendMessage({ type: 'get-settings' })
-    .then((r) => r?.ok && (settings = r.settings))
+    .then((r) => {
+      if (!r?.ok) return;
+      settings = r.settings;
+      setTimeout(() => {
+        if (window !== window.top || !['http:', 'https:'].includes(window.location.protocol)) return;
+        if (settings.autoTranslate === false || settings.targetLang !== 'ja' || page.status().state !== 'idle') return;
+        const hostname = location.hostname.toLowerCase();
+        if (settings.excludeDomains?.some((d) => hostname === d || hostname.endsWith('.' + d))) return;
+        const text = (document.body?.innerText ?? '').slice(0, 4000);
+        const latin = (text.match(/[A-Za-z]/g) ?? []).length;
+        const kana = (text.match(/[ぁ-んァ-ヶ]/g) ?? []).length;
+        if (latin < 120 || kana >= (latin + kana) * 0.05) return;
+        ensureHost();
+        page.toggle();
+      }, 1000);
+    })
     .catch(() => {});
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area !== 'sync') return;

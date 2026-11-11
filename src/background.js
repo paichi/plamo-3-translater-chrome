@@ -1,5 +1,9 @@
-import { loadSettings } from './shared/settings.js';
+import { loadSettings, normalizeSettings } from './shared/settings.js';
 import { translate } from './llm.js';
+import { createTranslationCache } from './cache.js';
+
+const translationCache = createTranslationCache();
+let cacheGeneration = 0;
 
 const CONTENT_SCRIPTS = [
   'src/content/markup.js',
@@ -53,9 +57,81 @@ function runCommand(command, tab, info) {
 chrome.contextMenus.onClicked.addListener((info, tab) => runCommand(info.menuItemId, tab, info));
 chrome.commands.onCommand.addListener((command, tab) => runCommand(command, tab));
 
+let creatingOffscreen;
+async function builtin(operation, settings, text) {
+  if (!creatingOffscreen) {
+    creatingOffscreen = (async () => {
+      const url = chrome.runtime.getURL('src/offscreen/host.html');
+      const contexts = await chrome.runtime.getContexts({ contextTypes: ['OFFSCREEN_DOCUMENT'], documentUrls: [url] });
+      if (!contexts.length) {
+        await chrome.offscreen.createDocument({
+          url: 'src/offscreen/host.html', reasons: ['WORKERS', 'BLOBS'],
+          justification: 'Run the local translation model and its WASM workers with an OPFS model cache.',
+        });
+      }
+    })().finally(() => { creatingOffscreen = undefined; });
+  }
+  await creatingOffscreen;
+  const result = await chrome.runtime.sendMessage({
+    target: 'plamo-offscreen', operation, quant: settings.builtinModel, targetLang: settings.targetLang, text,
+  });
+  if (!result) throw new Error('内蔵エンジンから応答がありません');
+  return result;
+}
+
+async function translateWithEngine(settings, text) {
+  return settings.engine === 'builtin'
+    ? builtin('translate', settings, text)
+    : { ok: true, text: await translate(settings, text) };
+}
+
+function requireOptions(sender) {
+  if (sender.url !== chrome.runtime.getURL('src/options/options.html')) throw new Error('設定ページから操作してください');
+}
+
 const HANDLERS = {
+  async 'builtin-keepalive'(_message, sender) {
+    if (sender.url !== chrome.runtime.getURL('src/offscreen/host.html')) throw new Error('不明な推論ホストです');
+    return { ok: true };
+  },
   async translate({ text }) {
-    return { ok: true, text: await translate(await loadSettings(), text) };
+    const settings = await loadSettings();
+    if (!settings.cacheEnabled) return translateWithEngine(settings, text);
+    const generation = cacheGeneration;
+    try {
+      const cached = await translationCache.get(settings, text);
+      if (cached !== undefined) return { ok: true, text: cached };
+    } catch (e) {
+      console.warn(`Translation cache lookup: ${e.message}`);
+    }
+    const result = await translateWithEngine(settings, text);
+    if (result.ok && typeof result.text === 'string' && generation === cacheGeneration) {
+      try {
+        await translationCache.set(settings, text, result.text);
+      } catch (e) {
+        console.warn(`Translation cache store: ${e.message}`);
+      }
+    }
+    return result;
+  },
+  async 'translation-cache'({ operation }, sender) {
+    requireOptions(sender);
+    if (operation === 'clear') {
+      cacheGeneration++;
+      await translationCache.clear();
+    } else if (operation !== 'status') {
+      throw new Error('不明な翻訳キャッシュ操作です');
+    }
+    return { ok: true, count: await translationCache.count() };
+  },
+  async 'test-translate'({ settings, text }, sender) {
+    requireOptions(sender);
+    return translateWithEngine(normalizeSettings(settings), text);
+  },
+  async 'builtin-model'({ operation, quant }, sender) {
+    requireOptions(sender);
+    if (!['status', 'load', 'delete'].includes(operation)) throw new Error('不明な内蔵エンジン操作です');
+    return builtin(operation, normalizeSettings({ builtinModel: quant }));
   },
   async 'get-settings'() {
     return { ok: true, settings: await loadSettings() };
@@ -76,6 +152,7 @@ const HANDLERS = {
 };
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message?.target) return false;
   const handler = HANDLERS[message?.type];
   if (!handler) return false;
   handler(message, sender)

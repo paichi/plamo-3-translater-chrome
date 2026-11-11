@@ -1,0 +1,22 @@
+[
+  {
+    "text": "Hello, world.",
+    "targetLang": "ja",
+    "prompt": "<|plamo:bos|><|plamo:tag|>dataset<|plamo:msg|>translation<|plamo:tag|>input<|plamo:msg|>Hello, world.<|plamo:tag|>output<|plamo:key|>lang<|plamo:val|>ja<|plamo:msg|>"
+  },
+  {
+    "text": "  Hello\n<g id=\"1\">world</g>!\n ",
+    "targetLang": "zh-hans",
+    "prompt": "<|plamo:bos|><|plamo:tag|>dataset<|plamo:msg|>translation<|plamo:tag|>input<|plamo:msg|>  Hello\n<g id=\"1\">world</g>!\n <|plamo:tag|>output<|plamo:key|>lang<|plamo:val|>zh-hans<|plamo:msg|>"
+  },
+  {
+    "text": "こんにちは。",
+    "targetLang": "en",
+    "prompt": "<|plamo:bos|><|plamo:tag|>dataset<|plamo:msg|>translation<|plamo:tag|>input<|plamo:msg|>こんにちは。<|plamo:tag|>output<|plamo:key|>lang<|plamo:val|>en<|plamo:msg|>"
+  },
+  {
+    "text": "難しい文章。",
+    "targetLang": "ja(easy)",
+    "prompt": "<|plamo:bos|><|plamo:tag|>dataset<|plamo:msg|>translation<|plamo:tag|>input<|plamo:msg|>難しい文章。<|plamo:tag|>output<|plamo:key|>lang<|plamo:val|>ja-easy<|plamo:msg|>"
+  }
+]
