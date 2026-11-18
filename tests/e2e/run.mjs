@@ -68,6 +68,7 @@ try {
     await options.click('#fetch-models');
     await options.locator('#message.ok').waitFor({ timeout: TIMEOUT });
     assert.notEqual(await options.inputValue('input[name=model]'), '', 'model filled from /models');
+    await options.uncheck('input[name=autoTranslate]');
     await options.click('button[type=submit]');
     await options.locator('#message', { hasText: '保存しました' }).waitFor();
     await options.click('#test');
