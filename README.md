@@ -1,9 +1,10 @@
 # PLaMo Translator (Chrome extension)
 
-A Chrome extension (v0.6.1) that translates web pages in place with PLaMo: either through an OpenAI-compatible API (e.g. llama.cpp), or entirely inside Chrome using PLaMo 3 Translate 0.8B and wllama. The built-in engine requires Chrome 137 or later; server mode does not impose that new requirement.
+A Chrome extension (v0.7.0) that translates web pages in place with PLaMo: either through an OpenAI-compatible API (e.g. llama.cpp), or entirely inside Chrome using PLaMo 3 Translate 0.8B and wllama. The built-in engine requires Chrome 137 or later; server mode does not impose that new requirement.
 
 - **Page translation.** Replaces the text of the current page with its translation. Links and bold text stay in place, and one click restores the original.
 - **Selection translation.** Select some text and a small button with the extension's icon appears. Click it to open a card with the translation below the selection.
+- **Force auto-translate domains.** Listed domains and their subdomains (default: `x.com`, `twitter.com`) always start automatic translation into Japanese regardless of page language or the global auto-translate toggle. Configure **必ず自動翻訳するドメイン** in options or add the current site from the popup. The exclude list takes precedence; individual segments containing kana are still skipped.
 
 The extension's UI is in Japanese, so the labels below are quoted as they appear on screen, with an English gloss.
 
@@ -97,7 +98,7 @@ npm test
 npm run e2e
 ```
 
-- `npm test` covers inline markup, domain exclusions, settings, real-template golden prompt renders and stop tokens, and the offscreen queue/cache/failure recovery using mocked inference + in-memory OPFS (not real model inference). Translation-cache tests exercise key separation, get/set, LRU eviction, concurrency and clearing against `fake-indexeddb`, plus background routing/error/disabled-storage behavior.
+- `npm test` covers inline markup, domain exclusions/forced auto-translation, settings, real-template golden prompt renders and stop tokens, and the offscreen queue/cache/failure recovery using mocked inference + in-memory OPFS (not real model inference). Translation-cache tests exercise key separation, get/set, LRU eviction, concurrency and clearing against `fake-indexeddb`, plus background routing/error/disabled-storage behavior.
 - `npm run e2e` loads the extension into Playwright's Chromium, opens `tests/e2e/fixture.html`, and runs these against a real LLM: the connection test on the options page, page translation, restoring the original, and selection translation. Page translation covers sentences whose tags the model tends to break, a paragraph inside a closed `details`, and scrolling to the end of a long page. Pass the LLM URL in `LLM_BASE_URL` (default `http://100.64.114.83:8891/v1`). Screenshots of the translated page and the selection card are saved to `tests/e2e/out/`. Set `HEADED=1` to watch the browser.
 
 ```sh

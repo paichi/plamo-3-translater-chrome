@@ -40,6 +40,7 @@ function readForm() {
     autoTranslate: fields.autoTranslate.checked,
     cacheEnabled: fields.cacheEnabled.checked,
     excludeDomains: fields.excludeDomains.value.split(/[\n,]+/),
+    forceDomains: fields.forceDomains.value.split(/[\n,]+/),
   });
 }
 

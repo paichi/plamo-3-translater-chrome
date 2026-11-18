@@ -38,7 +38,7 @@
   }
   ensureHost();
 
-  let settings = { targetLang: 'ja', concurrency: 16, showSelectionButton: true, autoTranslate: true, excludeDomains: [] };
+  let settings = { targetLang: 'ja', concurrency: 16, showSelectionButton: true, autoTranslate: true, excludeDomains: [], forceDomains: [] };
   chrome.runtime
     .sendMessage({ type: 'get-settings' })
     .then((r) => {
@@ -46,13 +46,17 @@
       settings = r.settings;
       setTimeout(() => {
         if (window !== window.top || !['http:', 'https:'].includes(window.location.protocol)) return;
-        if (settings.autoTranslate === false || settings.targetLang !== 'ja' || page.status().state !== 'idle') return;
+        if (settings.targetLang !== 'ja' || page.status().state !== 'idle') return;
         const hostname = location.hostname.toLowerCase();
-        if (settings.excludeDomains?.some((d) => hostname === d || hostname.endsWith('.' + d))) return;
-        const text = (document.body?.innerText ?? '').slice(0, 4000);
-        const latin = (text.match(/[A-Za-z]/g) ?? []).length;
-        const kana = (text.match(/[ぁ-んァ-ヶ]/g) ?? []).length;
-        if (latin < 120 || kana >= (latin + kana) * 0.05) return;
+        const matchesDomain = (domain) => hostname === domain || hostname.endsWith('.' + domain);
+        if (settings.excludeDomains?.some(matchesDomain)) return;
+        if (!settings.forceDomains?.some(matchesDomain)) {
+          if (settings.autoTranslate === false) return;
+          const text = (document.body?.innerText ?? '').slice(0, 4000);
+          const latin = (text.match(/[A-Za-z]/g) ?? []).length;
+          const kana = (text.match(/[ぁ-んァ-ヶ]/g) ?? []).length;
+          if (latin < 120 || kana >= (latin + kana) * 0.05) return;
+        }
         ensureHost();
         page.toggle();
       }, 1000);

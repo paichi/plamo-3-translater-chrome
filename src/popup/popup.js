@@ -37,23 +37,25 @@ toggle.addEventListener('click', async () => {
   window.close();
 });
 
-const excludeSite = document.getElementById('exclude-site');
 let hostname = '';
 try {
   const url = new URL(tab?.url ?? '');
   if (['http:', 'https:'].includes(url.protocol)) hostname = url.hostname.toLowerCase();
 } catch {}
-excludeSite.disabled = !hostname;
-excludeSite.addEventListener('click', async () => {
-  excludeSite.disabled = true;
-  try {
-    const settings = await loadSettings();
-    await chrome.storage.sync.set({ excludeDomains: [...new Set([...settings.excludeDomains, hostname])] });
-    window.close();
-  } catch (e) {
-    statusEl.textContent = `保存できませんでした。\n${e.message}`;
-    excludeSite.disabled = false;
-  }
-});
+for (const [id, key] of [['exclude-site', 'excludeDomains'], ['force-site', 'forceDomains']]) {
+  const button = document.getElementById(id);
+  button.disabled = !hostname;
+  button.addEventListener('click', async () => {
+    button.disabled = true;
+    try {
+      const settings = await loadSettings();
+      await chrome.storage.sync.set({ [key]: [...new Set([...settings[key], hostname])] });
+      window.close();
+    } catch (e) {
+      statusEl.textContent = `保存できませんでした。\n${e.message}`;
+      button.disabled = false;
+    }
+  });
+}
 
 document.getElementById('options').addEventListener('click', () => chrome.runtime.openOptionsPage());

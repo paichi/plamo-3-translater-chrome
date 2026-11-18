@@ -12,7 +12,15 @@ export const DEFAULTS = Object.freeze({
   autoTranslate: true,
   cacheEnabled: true,
   excludeDomains: [],
+  forceDomains: ['x.com', 'twitter.com'],
 });
+
+function normalizeDomains(domains) {
+  return [...new Set((Array.isArray(domains) ? domains : [])
+    .filter((domain) => typeof domain === 'string')
+    .map((domain) => domain.trim().toLowerCase().replace(/^\*\./, ''))
+    .filter((domain) => domain && !/[\s/]/.test(domain)))];
+}
 
 export function normalizeSettings(raw) {
   const s = { ...DEFAULTS, ...raw };
@@ -28,10 +36,8 @@ export function normalizeSettings(raw) {
     showSelectionButton: s.showSelectionButton !== false,
     autoTranslate: s.autoTranslate !== false,
     cacheEnabled: s.cacheEnabled !== false,
-    excludeDomains: [...new Set((Array.isArray(s.excludeDomains) ? s.excludeDomains : [])
-      .filter((domain) => typeof domain === 'string')
-      .map((domain) => domain.trim().toLowerCase().replace(/^\*\./, ''))
-      .filter((domain) => domain && !/[\s/]/.test(domain)))],
+    excludeDomains: normalizeDomains(s.excludeDomains),
+    forceDomains: normalizeDomains(s.forceDomains),
   };
 }
 
