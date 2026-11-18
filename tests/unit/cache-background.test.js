@@ -117,3 +117,75 @@ test('unavailable IndexedDB does not block translation', async () => {
     Object.assign(globalThis, original);
   }
 });
+
+test('unreachable server falls back to the builtin translation and recovers on the next request', async (t) => {
+  const original = { chrome: globalThis.chrome, fetch: globalThis.fetch, indexedDB: globalThis.indexedDB };
+  t.after(() => Object.assign(globalThis, original));
+  globalThis.indexedDB = new IDBFactory();
+  let settings = normalizeSettings({});
+  let listener;
+  let builtinCalls = 0;
+  let server = 'unreachable';
+  const noOp = { addListener() {} };
+  const optionsUrl = 'chrome-extension://test/src/options/options.html';
+  globalThis.chrome = {
+    runtime: {
+      onInstalled: noOp,
+      onMessage: { addListener(fn) { listener = fn; } },
+      getURL: (path) => `chrome-extension://test/${path}`,
+      getContexts: async () => [{}],
+      async sendMessage() {
+        builtinCalls++;
+        return { ok: true, text: '内蔵の訳' };
+      },
+    },
+    contextMenus: { onClicked: noOp }, commands: { onCommand: noOp },
+    storage: { sync: { get: async () => settings } },
+  };
+  globalThis.fetch = async () => {
+    if (server === 'unreachable') throw new TypeError('Failed to fetch');
+    if (server === 'unauthorized') return new Response('', { status: 401 });
+    if (server === 'timeout') throw new DOMException('Timed out', 'TimeoutError');
+    if (server === 'body-timeout') {
+      return new Response(new ReadableStream({
+        start(controller) { controller.error(new DOMException('Timed out', 'TimeoutError')); },
+      }));
+    }
+    if (server === 'invalid-json') return new Response('{');
+    return Response.json({ choices: [{ message: { content: 'サーバーの訳' } }] });
+  };
+  await import('../../src/background.js?connection-fallback-test');
+  const send = (message) => new Promise((resolve) => listener(message, { url: optionsUrl }, resolve));
+  const translate = (text) => send({ type: 'translate', text });
+
+  assert.deepEqual(await translate('Hello'), { ok: true, text: '内蔵の訳' });
+  assert.deepEqual(await translate('Hello'), { ok: true, text: '内蔵の訳' });
+  assert.equal(builtinCalls, 1);
+
+  const probe = await send({ type: 'test-translate', settings, text: 'Hello' });
+  assert.equal(probe.ok, false);
+  assert.match(probe.error, /接続できません/);
+  assert.equal(builtinCalls, 1);
+
+  server = 'available';
+  assert.deepEqual(await translate('Hello'), { ok: true, text: 'サーバーの訳' });
+
+  settings = { ...settings, cacheEnabled: false };
+  server = 'unauthorized';
+  const denied = await translate('Hello');
+  assert.equal(denied.ok, false);
+  assert.match(denied.error, /HTTP 401/);
+  assert.equal(builtinCalls, 1);
+
+  server = 'timeout';
+  assert.deepEqual(await translate('Hello'), { ok: true, text: '内蔵の訳' });
+  assert.equal(builtinCalls, 2);
+
+  server = 'body-timeout';
+  assert.deepEqual(await translate('Hello'), { ok: true, text: '内蔵の訳' });
+  assert.equal(builtinCalls, 3);
+
+  server = 'invalid-json';
+  assert.equal((await translate('Hello')).ok, false);
+  assert.equal(builtinCalls, 3);
+});

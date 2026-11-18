@@ -26,15 +26,17 @@ Click the toolbar icon and choose **設定を開く** (Open settings), or open *
 | --- | --- |
 | Engine | **サーバー接続** (default) or **ブラウザ内蔵** (in-browser) |
 | Built-in model | `Q4_K_M` (default), `Q4_0`, `Q3_K_M`, or `Q2_K` |
-| API URL | Everything before `/chat/completions`, e.g. `http://localhost:8080/v1` |
+| API URL | Everything before `/chat/completions`. The default is `http://127.0.0.1:18080/v1` |
 | API key | Sent as `Authorization: Bearer` when not empty |
-| Model | Omitted from requests when empty. **モデル一覧を取得** (Fetch models) lists the models from `GET /models` |
+| Model | The default local model is `plamo-08b`. Leave the field empty to omit it from requests. **モデル一覧を取得** (Fetch models) lists the models from `GET /models` |
 | Target language | Japanese by default |
-| Concurrent requests | Maximum number of requests page translation sends at once (1 to 16, default 4) |
+| Concurrent requests | Maximum number of requests page translation sends at once (1 to 16, default 16) |
 | Show translate button | When off, selecting text shows no button. The context menu and the shortcut still work |
 | Translation cache | **翻訳キャッシュを使う**, on by default. Reuses saved segment translations for both engines |
 
 Each request sends only the text to translate as the user message, and passes the target language as `chat_template_kwargs: { target_lang }` to the PLaMo chat template.
+
+In server mode, page and selection translations use the built-in model if the server cannot be reached or the connection times out. Chrome 137 or later is required for the built-in engine, which downloads its model on first use. Each new uncached request tries the server again. Server responses reporting an HTTP error remain visible as errors.
 
 When you have filled in the form, click **選択エンジンの接続テスト** (Test selected engine) to translate a short English sentence using the current, **unsaved** form values, then click **保存** (Save). Server fields remain editable in either mode; their URL/key/model are never used by built-in inference.
 

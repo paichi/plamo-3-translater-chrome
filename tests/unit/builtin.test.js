@@ -5,6 +5,23 @@ import test from 'node:test';
 import { buildPrompt, cleanCompletion, verifyTemplate, STOP_TOKENS } from '../../src/offscreen/prompt.js';
 import { DEFAULTS, normalizeSettings } from '../../src/shared/settings.js';
 
+test('new settings prefer the local PLaMo server', () => {
+  const { engine, baseUrl, model, apiKey, targetLang, concurrency } = normalizeSettings({});
+  assert.deepEqual({ engine, baseUrl, model, apiKey, targetLang, concurrency }, {
+    engine: 'server',
+    baseUrl: 'http://127.0.0.1:18080/v1',
+    model: 'plamo-08b',
+    apiKey: '',
+    targetLang: 'ja',
+    concurrency: 16,
+  });
+  const saved = normalizeSettings({ baseUrl: 'https://other.example/v1', model: 'custom', concurrency: 4 });
+  assert.equal(saved.baseUrl, 'https://other.example/v1');
+  assert.equal(saved.model, 'custom');
+  assert.equal(saved.concurrency, 4);
+  assert.equal(normalizeSettings({ baseUrl: saved.baseUrl }).model, '');
+});
+
 const fixtures = JSON.parse(readFileSync(new URL('../fixtures/plamo-prompts.json', import.meta.url)));
 
 test('single-user PFML3 matches golden renders of the real HF Jinja fixture', () => {

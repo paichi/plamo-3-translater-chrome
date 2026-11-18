@@ -38,7 +38,7 @@
   }
   ensureHost();
 
-  let settings = { targetLang: 'ja', concurrency: 4, showSelectionButton: true, autoTranslate: true, excludeDomains: [] };
+  let settings = { targetLang: 'ja', concurrency: 16, showSelectionButton: true, autoTranslate: true, excludeDomains: [] };
   chrome.runtime
     .sendMessage({ type: 'get-settings' })
     .then((r) => {

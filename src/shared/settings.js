@@ -3,11 +3,11 @@ export const BUILTIN_MODELS = ['Q4_K_M', 'Q4_0', 'Q3_K_M', 'Q2_K'];
 export const DEFAULTS = Object.freeze({
   engine: 'server',
   builtinModel: 'Q4_K_M',
-  baseUrl: 'http://localhost:8080/v1',
+  baseUrl: 'http://127.0.0.1:18080/v1',
   apiKey: '',
-  model: '',
+  model: 'plamo-08b',
   targetLang: 'ja',
-  concurrency: 4,
+  concurrency: 16,
   showSelectionButton: true,
   autoTranslate: true,
   cacheEnabled: true,
@@ -16,12 +16,13 @@ export const DEFAULTS = Object.freeze({
 
 export function normalizeSettings(raw) {
   const s = { ...DEFAULTS, ...raw };
+  const baseUrl = String(s.baseUrl).trim().replace(/\/+$/, '') || DEFAULTS.baseUrl;
   return {
     engine: s.engine === 'builtin' ? 'builtin' : DEFAULTS.engine,
     builtinModel: BUILTIN_MODELS.includes(s.builtinModel) ? s.builtinModel : DEFAULTS.builtinModel,
-    baseUrl: String(s.baseUrl).trim().replace(/\/+$/, '') || DEFAULTS.baseUrl,
+    baseUrl,
     apiKey: String(s.apiKey).trim(),
-    model: String(s.model).trim(),
+    model: String(raw?.model ?? (baseUrl === DEFAULTS.baseUrl ? DEFAULTS.model : '')).trim(),
     targetLang: String(s.targetLang).trim().toLowerCase() || DEFAULTS.targetLang,
     concurrency: Math.min(16, Math.max(1, Math.round(Number(s.concurrency)) || DEFAULTS.concurrency)),
     showSelectionButton: s.showSelectionButton !== false,
@@ -35,7 +36,7 @@ export function normalizeSettings(raw) {
 }
 
 export async function loadSettings() {
-  return normalizeSettings(await chrome.storage.sync.get(DEFAULTS));
+  return normalizeSettings(await chrome.storage.sync.get(Object.keys(DEFAULTS)));
 }
 
 export async function saveSettings(settings) {

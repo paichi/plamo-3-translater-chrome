@@ -1,5 +1,5 @@
 import { loadSettings, normalizeSettings } from './shared/settings.js';
-import { translate } from './llm.js';
+import { ServerConnectionError, translate } from './llm.js';
 import { createTranslationCache } from './cache.js';
 
 const translationCache = createTranslationCache();
@@ -85,6 +85,25 @@ async function translateWithEngine(settings, text) {
     : { ok: true, text: await translate(settings, text) };
 }
 
+async function translateCached(settings, text, generation) {
+  if (!settings.cacheEnabled) return translateWithEngine(settings, text);
+  try {
+    const cached = await translationCache.get(settings, text);
+    if (cached !== undefined) return { ok: true, text: cached };
+  } catch (e) {
+    console.warn(`Translation cache lookup: ${e.message}`);
+  }
+  const result = await translateWithEngine(settings, text);
+  if (result.ok && typeof result.text === 'string' && generation === cacheGeneration) {
+    try {
+      await translationCache.set(settings, text, result.text);
+    } catch (e) {
+      console.warn(`Translation cache store: ${e.message}`);
+    }
+  }
+  return result;
+}
+
 function requireOptions(sender) {
   if (sender.url !== chrome.runtime.getURL('src/options/options.html')) throw new Error('設定ページから操作してください');
 }
@@ -96,23 +115,13 @@ const HANDLERS = {
   },
   async translate({ text }) {
     const settings = await loadSettings();
-    if (!settings.cacheEnabled) return translateWithEngine(settings, text);
     const generation = cacheGeneration;
     try {
-      const cached = await translationCache.get(settings, text);
-      if (cached !== undefined) return { ok: true, text: cached };
+      return await translateCached(settings, text, generation);
     } catch (e) {
-      console.warn(`Translation cache lookup: ${e.message}`);
+      if (!(e instanceof ServerConnectionError)) throw e;
+      return translateCached({ ...settings, engine: 'builtin' }, text, generation);
     }
-    const result = await translateWithEngine(settings, text);
-    if (result.ok && typeof result.text === 'string' && generation === cacheGeneration) {
-      try {
-        await translationCache.set(settings, text, result.text);
-      } catch (e) {
-        console.warn(`Translation cache store: ${e.message}`);
-      }
-    }
-    return result;
   },
   async 'translation-cache'({ operation }, sender) {
     requireOptions(sender);

@@ -9,6 +9,8 @@ export const LANGUAGES = [
   { code: 'es', label: 'スペイン語' },
 ];
 
+export class ServerConnectionError extends Error {}
+
 function headers(settings) {
   const h = { 'Content-Type': 'application/json' };
   if (settings.apiKey) h.Authorization = `Bearer ${settings.apiKey}`;
@@ -16,18 +18,19 @@ function headers(settings) {
 }
 
 async function request(url, init) {
+  const signal = init.signal ?? AbortSignal.timeout(60_000);
   let res;
   try {
-    res = await fetch(url, { ...init, signal: init.signal ?? AbortSignal.timeout(60_000) });
+    res = await fetch(url, { ...init, signal });
+    if (res.ok) return await res.json();
   } catch (e) {
-    const reason = e.name === 'TimeoutError' ? '応答がありません（60 秒）' : e.message;
-    throw new Error(`${url} に接続できません: ${reason}`);
+    const timedOut = e.name === 'TimeoutError' || signal.reason?.name === 'TimeoutError';
+    if (init.signal?.aborted || (!timedOut && !(e instanceof TypeError))) throw e;
+    const reason = timedOut ? '応答がありません（60 秒）' : e.message;
+    throw new ServerConnectionError(`${url} に接続できません: ${reason}`, { cause: e });
   }
-  if (!res.ok) {
-    const detail = (await res.text().catch(() => '')).slice(0, 300);
-    throw new Error(`HTTP ${res.status}${detail ? `: ${detail}` : ''}`);
-  }
-  return res.json();
+  const detail = (await res.text().catch(() => '')).slice(0, 300);
+  throw new Error(`HTTP ${res.status}${detail ? `: ${detail}` : ''}`);
 }
 
 export async function translate(settings, text, { signal } = {}) {

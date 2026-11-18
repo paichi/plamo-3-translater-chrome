@@ -72,7 +72,7 @@ The unit of translation (Segment) is a run of consecutive inline nodes inside on
 
 - Only Segments near the screen are translated. An `IntersectionObserver` (with a `rootMargin` of one screen height) watches each Segment's parent and queues the Segments that come into range. Segments that are not displayed, such as those inside a closed `details`, are queued when they become visible. The progress total is the number of Segments queued.
 - The next Segment taken from the queue is the one whose parent is closest to the screen (distance 0 when on screen). After scrolling, the paragraph in view is translated before the ones prefetched earlier.
-- At most `concurrency` requests run at once (default 4).
+- At most `concurrency` requests run at once (default 16).
 - When the target language is Japanese, Segments that contain kana are not translated. Segments without letters (`\p{L}`) are not translated either.
 - Translations of identical source text are reused through a per-page `Map`.
 - DOM added while translation is on is picked up by a `MutationObserver`. Nodes the extension inserted are remembered in a `WeakSet` and skipped.
@@ -94,14 +94,16 @@ Stored in `chrome.storage.sync`.
 
 | Key | Default |
 | --- | --- |
-| `baseUrl` | `http://localhost:8080/v1` |
+| `baseUrl` | `http://127.0.0.1:18080/v1` |
 | `apiKey` | Empty. Sent as `Authorization: Bearer` when not empty |
-| `model` | Empty. When empty, `model` is not sent (llama.cpp uses the loaded model) |
+| `model` | `plamo-08b` for the default local URL. When empty, `model` is not sent (llama.cpp uses the loaded model) |
 | `targetLang` | `ja` |
-| `concurrency` | `4` |
+| `concurrency` | `16` |
 | `showSelectionButton` | `true` |
 
 The options page has a button that fetches the model list (`GET {baseUrl}/models`) and a connection test button (translates a short English sentence).
+
+In server mode, normal translation uses the built-in model on a network error or timeout. The result is cached under the built-in model's key, so subsequent uncached requests still try the server. The connection test reports the selected engine's result directly.
 
 ## Verification
 
