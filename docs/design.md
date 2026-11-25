@@ -52,6 +52,7 @@ The unit of translation (Segment) is a run of consecutive inline nodes inside on
 - `nodes` are consecutive text nodes and inline elements directly under the parent. A run of whitespace only is not a unit.
 - An inline element is one whose tag name is in the inline table and whose descendants are all text or inline elements. An element containing a block, such as `<a><div>…</div></a>`, is not treated as inline. The walk descends into it instead.
 - Elements without text, such as `br`, `img`, and `input`, split a run.
+- In elements whose computed `white-space` preserves newlines (`pre`, `pre-wrap`, `pre-line`, `break-spaces`), newline characters split a run too: text nodes are cut at each newline, the newline-only nodes stay in place untranslated, and each line becomes its own unit. An inline element containing newlines is then not treated as inline either; the walk descends into it (except `code`, `kbd`, `samp`, and `var`, which are always kept whole). Sites like x.com render line breaks from newline characters rather than `<br>`, and the model cannot be trusted to reproduce them — whitespace collapses before translation — so they are kept out of the translated text entirely.
 - Nothing is translated inside `script`, `style`, `noscript`, `textarea`, `pre`, `code` (when it stands alone as a block), `svg`, `math`, `contenteditable`, `translate="no"`, `.notranslate`, or the extension's own UI.
 
 ### Tag strings

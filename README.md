@@ -74,6 +74,8 @@ Start it in any of these ways. Doing the same again restores the original.
 
 Only text near the screen is translated, starting with the paragraphs currently in view. As you scroll, the text further down gets translated too. Text the page adds after translation starts is translated as well. A small panel at the bottom right shows progress and a **原文に戻す** (Restore original) button.
 
+Line breaks that belong to the layout survive translation. On sites like x.com, breaks come from newline characters rendered through `white-space: pre-wrap`/`break-spaces` rather than `<br>` elements. In such containers each line is translated as its own unit and the newline characters stay in place, so paragraphs, bullet lines, and blank lines keep their structure. In ordinary `white-space: normal` text newlines are meaningless and collapse as before.
+
 The following is never translated.
 
 - `pre`, `script`, `style`, `textarea`, form fields, and editable regions
@@ -124,6 +126,14 @@ CHROMIUM_PATH=/path/to/chrome npm run smoke:cache
 ```
 
 Uses a disposable profile and checks initial requests, zero requests on reload and full browser restart, exactly one request for a changed paragraph at the same URL, selection/automatic cache hits, full requests with caching disabled, count/confirm-clear controls, and real IndexedDB eviction at 20,000 entries. Verified with standard Chromium in this VM; this validates cache behavior, not real-model inference or latency guarantees.
+
+### Line-break browser smoke (local mock server, no real LLM)
+
+```sh
+CHROMIUM_PATH=/path/to/chrome npm run smoke:newlines
+```
+
+Checks x.com-style line breaks: a fixture renders them from newline characters inside `white-space: break-spaces` text with nested spans and a link, the way x.com structures posts. Asserts one request per line with no newline characters in any request, all newline characters and the blank line surviving in the translated DOM, the mention link element intact, the rendered line count unchanged, a `white-space: normal` control paragraph still collapsing into one request, and exact restoration. A screenshot is saved to `tests/e2e/out/newlines-translated.png`.
 
 ### Standalone browser/offscreen smoke (no LLM server needed)
 

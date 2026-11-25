@@ -9,6 +9,7 @@
     "smoke": "node scripts/smoke-real.mjs",
     "smoke:builtin": "node scripts/smoke-builtin.mjs",
     "smoke:cache": "node scripts/smoke-cache.mjs",
+    "smoke:newlines": "node scripts/smoke-newlines.mjs",
     "icons": "node scripts/make_icons.mjs"
   },
   "devDependencies": {

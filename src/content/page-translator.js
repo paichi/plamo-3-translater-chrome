@@ -1,5 +1,5 @@
 (() => {
-  const { serialize, parse, build, isInline } = globalThis.PlamoMarkup;
+  const { serialize, parse, build, isInline, isKeep } = globalThis.PlamoMarkup;
 
   const SKIP_TAGS = new Set([
     'script', 'style', 'noscript', 'textarea', 'pre', 'svg', 'math', 'template', 'iframe',
@@ -110,9 +110,31 @@
       return !el.closest(EXCLUDED_SELECTOR) && !el.isContentEditable;
     }
 
+    const NEWLINE_SIGNIFICANT = new Set(['pre', 'pre-wrap', 'pre-line', 'break-spaces']);
+
+    function keepsNewlines(el) {
+      return NEWLINE_SIGNIFICANT.has(getComputedStyle(el).whiteSpace);
+    }
+
+    // The model cannot be trusted to reproduce newlines (whitespace is collapsed before
+    // translation), so they are cut out of the text and kept as untouchable separators.
+    function splitNewlines(el) {
+      for (const child of [...el.childNodes]) {
+        if (child.nodeType !== Node.TEXT_NODE) continue;
+        if (!child.nodeValue.includes('\n') || /^\n+$/.test(child.nodeValue)) continue;
+        if (claimed.has(child) || inserted.has(child)) continue;
+        for (const piece of child.nodeValue.split(/(\n+)/)) {
+          if (piece) el.insertBefore(document.createTextNode(piece), child);
+        }
+        child.remove();
+      }
+    }
+
     /** @param {Element} el @param {Segment[]} out */
     function collect(el, out) {
       if (!canEnter(el)) return;
+      const significant = keepsNewlines(el);
+      if (significant) splitNewlines(el);
       let run = [];
       const flush = () => {
         if (run.length) addSegment(el, run, out);
@@ -122,9 +144,15 @@
         if (claimed.has(child) || inserted.has(child)) {
           flush();
         } else if (child.nodeType === Node.TEXT_NODE) {
-          run.push(child);
+          if (significant && child.nodeValue.includes('\n')) flush();
+          else run.push(child);
         } else if (child.nodeType === Node.ELEMENT_NODE && isInline(child) && !isOwnUi(child)) {
-          run.push(child);
+          if (!isKeep(child) && child.textContent.includes('\n') && keepsNewlines(child)) {
+            flush();
+            collect(child, out);
+          } else {
+            run.push(child);
+          }
         } else {
           flush();
           if (child.nodeType === Node.ELEMENT_NODE) collect(child, out);

@@ -100,6 +100,7 @@ function loadPage() {
     document: { body, title: '' },
     Node: { ELEMENT_NODE: 1, TEXT_NODE: 3 },
     innerHeight: 800,
+    getComputedStyle: () => ({ whiteSpace: 'normal' }),
     setTimeout, clearTimeout,
     IntersectionObserver: class {
       constructor(callback) { reportIntersections = callback; }
