@@ -19,6 +19,16 @@ No build step is needed.
 
 Tabs that were already open before installing also work from the popup, the context menu, and the keyboard shortcuts. The extension injects itself into the tab at that moment.
 
+## Local server launcher (macOS)
+
+`tools/plamo-launcher/` builds **PLaMoを起動.app**, a small macOS app that serves the default server-mode backend. It runs llama.cpp's `llama-server` with PLaMo 3 Translate 0.8B Q4_K_M as an OpenAI-compatible API at `http://127.0.0.1:18080/v1` (model id `plamo-08b`, matching the extension defaults), registered with launchd so it stays running.
+
+```sh
+sh tools/plamo-launcher/build.sh ~/Applications/PLaMoを起動.app
+```
+
+The build downloads a pinned llama.cpp release (checksum-verified), bundles it, compiles `main.swift`, and ad-hoc signs the app. On first launch the app downloads the model (~573 MB, checksum-verified) into `~/Library/Application Support/PLaMo Local` and reuses it afterwards.
+
 ## Settings
 
 Click the toolbar icon and choose **設定を開く** (Open settings), or open **Extension options** from **Details** on `chrome://extensions`.
