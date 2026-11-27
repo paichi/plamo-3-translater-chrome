@@ -141,6 +141,7 @@ Uses a disposable profile and checks initial requests, zero requests on reload a
 
 ```sh
 CHROMIUM_PATH=/path/to/chrome npm run smoke:newlines
+npm run smoke:react-updates  # React風の動的更新で翻訳が積算されないこと
 ```
 
 Checks x.com-style line breaks: a fixture renders them from newline characters inside `white-space: break-spaces` text with nested spans and a link, the way x.com structures posts. Asserts one request per line with no newline characters in any request, all newline characters and the blank line surviving in the translated DOM, the mention link element intact, the rendered line count unchanged, a `white-space: normal` control paragraph still collapsing into one request, and exact restoration. A screenshot is saved to `tests/e2e/out/newlines-translated.png`.

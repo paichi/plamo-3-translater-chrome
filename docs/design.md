@@ -112,3 +112,38 @@ In server mode, normal translation uses the built-in model on a network error or
 - `npm run e2e` loads the extension into Playwright's Chromium, opens a test page, and runs page translation, restoring the original, and selection translation against a real LLM. For page translation it checks sentences whose tags the model tends to break, a paragraph inside a closed `details`, that the paragraph in view is translated first after scrolling to the end of a long page, and that no tag-like text shows on screen. The LLM URL comes from the `LLM_BASE_URL` environment variable.
 - `npm run measure-tags` sends 20 sentences containing inline elements to the LLM the same way the extension does. It prints how many sentences came back with their tags intact and how many tags `parse` kept. Use it as the yardstick when changing the tag format or `parse`.
 - `npm run smoke` translates real pages in Chromium with the extension loaded (one Wikipedia page and one MDN page by default, or URLs passed as arguments). It prints the seconds until the page reaches `translated`, the number of visible `<p>` left untranslated, and page errors, once at the top of the page and once after scrolling to the end. It also checks that restoring works, and saves screenshots to `tests/e2e/out/`.
+
+## Volatile containers and regeneration
+
+SPA frameworks (React and similar) keep references to the text nodes they rendered
+and later update or remove those nodes by reference. Once a translation has detached
+the originals, the site's updates silently miss them: removals hit nodes that are no
+longer in the document, and fresh replacement nodes land next to the inserted
+translations. Without intervention every update appends one more generation of
+translations — visible as endlessly concatenating text in live widgets such as the
+X "show new posts" pill.
+
+When fresh translatable content appears in a parent that already has live
+translations, the parent is regenerated: the previous generation's translations are
+removed outright and only the content currently present is collected and translated
+again. Detached originals are deliberately not restored during regeneration. Sites
+re-render volatile widgets wholesale, so the fresh nodes already carry everything
+that should be visible, while restoring detached originals would resurrect content
+the site has logically deleted (which then merges old and new text into one run).
+
+Two deliberate consequences:
+
+- Regeneration is scoped to the direct parent element of translated text. Additions
+  of new child elements to structural containers (lists, feeds) recurse without
+  wiping anything, so feeds and comment threads are unaffected.
+- Untranslatable text (Japanese lines when targeting Japanese, numbers, whitespace)
+  does not count as fresh content; mixed-language posts would otherwise churn
+  through wipe-and-retranslate cycles on every unrelated page mutation.
+
+Known limitation: a site that surgically appends inline content inside an already
+translated text container (rather than re-rendering it wholesale) loses the earlier
+translated text of that container, because its detached originals are dropped with
+the generation. Real layouts almost never do this — dynamic additions go into list
+containers, not into sentences — and the alternative designs are worse: keeping
+translations appends them endlessly, and restoring originals pollutes volatile
+widgets with stale text.

@@ -10,7 +10,8 @@
     "smoke:builtin": "node scripts/smoke-builtin.mjs",
     "smoke:cache": "node scripts/smoke-cache.mjs",
     "smoke:newlines": "node scripts/smoke-newlines.mjs",
-    "icons": "node scripts/make_icons.mjs"
+    "icons": "node scripts/make_icons.mjs",
+    "smoke:react-updates": "node scripts/smoke-react-updates.mjs"
   },
   "devDependencies": {
     "fake-indexeddb": "^6.2.8",

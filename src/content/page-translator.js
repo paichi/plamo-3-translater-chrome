@@ -28,6 +28,7 @@
     let claimed = new WeakSet();
     let inserted = new WeakSet();
     let records = [];
+    const activeParents = new Map();
     let pendingByParent = new Map();
     let queue = [];
     let running = 0;
@@ -130,9 +131,48 @@
       }
     }
 
+    const bumpParent = (parent, delta) => {
+      const count = (activeParents.get(parent) ?? 0) + delta;
+      if (count <= 0) activeParents.delete(parent);
+      else activeParents.set(parent, count);
+    };
+
+    const hasFreshContent = (el) => {
+      for (const child of el.childNodes) {
+        if (claimed.has(child) || inserted.has(child)) continue;
+        if (child.nodeType === Node.TEXT_NODE) {
+          if (shouldTranslate(child.nodeValue)) return true;
+        } else if (
+          child.nodeType === Node.ELEMENT_NODE &&
+          isInline(child) &&
+          !isOwnUi(child) &&
+          shouldTranslate(child.textContent ?? '')
+        ) {
+          return true;
+        }
+      }
+      return false;
+    };
+
+    // A volatile parent re-renders wholesale, so its fresh nodes carry everything
+    // that should be visible. Dropping the old generation outright is correct here:
+    // restoring detached originals would resurrect content the site already deleted,
+    // and keeping the translations alongside new ones piles them up.
+    const regenerate = (el) => {
+      const doomed = records.filter((r) => r.parent === el);
+      for (const record of doomed) {
+        for (const node of record.replacements) {
+          if (node.parentNode === el) node.remove();
+        }
+        bumpParent(el, -1);
+      }
+      records = records.filter((r) => r.parent !== el);
+    };
+
     /** @param {Element} el @param {Segment[]} out */
     function collect(el, out) {
       if (!canEnter(el)) return;
+      if (activeParents.has(el) && hasFreshContent(el)) regenerate(el);
       const significant = keepsNewlines(el);
       if (significant) splitNewlines(el);
       let run = [];
@@ -252,6 +292,7 @@
         segment.parent.insertBefore(node, first);
       }
       segment.nodes.forEach((n) => n.remove());
+      bumpParent(segment.parent, 1);
       records.push({ parent: segment.parent, originals: segment.nodes, replacements });
     }
 
@@ -302,6 +343,7 @@
         replacements.forEach((n) => n.parentNode === parent && n.remove());
       }
       records = [];
+      activeParents.clear();
       claimed = new WeakSet();
       inserted = new WeakSet();
       if (originalTitle !== null) document.title = originalTitle;
